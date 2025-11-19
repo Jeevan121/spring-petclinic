@@ -2,28 +2,26 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB = 'DOCKER_HUB_LOGIN'   // Credential ID in Jenkins
-        APP_NAME = 'petclinic'
-        DOCKER_IMAGE = "jeevan121/petclinic"
         MAVEN_HOME = tool 'maven3.9'
+        DOCKER_IMAGE = "jeevan121/petclinic"
+        DOCKERHUB_CRED = "DOCKER_HUB_LOGIN"
     }
 
     stages {
-        
+
         stage('Checkout') {
             steps {
-                git branch: 'master',
-                    url: 'https://github.com/Jeevan121/spring-petclinic.git'
+                git url: 'https://github.com/Jeevan121/spring-petclinic.git', branch: 'master'
             }
         }
 
-        stage('Build with Maven') {
+        stage('Maven Build') {
             steps {
-                sh "${MAVEN_HOME}/bin/mvn clean package -DskipTests=true"
+                sh "${MAVEN_HOME}/bin/mvn clean package -DskipTests"
             }
         }
 
-        stage('Unit Tests') {
+        stage('Run Tests') {
             steps {
                 sh "${MAVEN_HOME}/bin/mvn test"
             }
@@ -32,27 +30,27 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                docker build -t $DOCKER_IMAGE:latest .
+                    docker build -t $DOCKER_IMAGE:latest .
                 '''
             }
         }
 
-        stage('Login & Push to Docker Hub') {
+        stage('Docker Login & Push') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CRED}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                     sh '''
-                    echo "$PASS" | docker login -u "$USER" --password-stdin
-                    docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:v1
-                    docker push $DOCKER_IMAGE:v1
+                        echo "$PASS" | docker login -u "$USER" --password-stdin
+                        docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:v1
+                        docker push $DOCKER_IMAGE:v1
                     '''
                 }
             }
         }
 
-        stage('Deploy to EC2 via Ansible') {
+        stage('Deploy via Ansible') {
             steps {
                 sh '''
-                ansible-playbook -i /tmp/inv deploy.yml
+                    ansible-playbook -i /tmp/inv deploy.yml
                 '''
             }
         }
