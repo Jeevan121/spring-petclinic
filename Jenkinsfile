@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk25'              // <-- USE JDK 25 FOR BUILD
+        jdk 'myjava'              // <-- USE JDK 25 FOR BUILD
         maven 'maven3.9'         // <-- matches your tool name
     }
 
