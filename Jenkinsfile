@@ -10,8 +10,8 @@ pipeline {
         JAVA_HOME = "/usr/lib/jvm/temurin-25-jdk-amd64"
         PATH = "${JAVA_HOME}/bin:${PATH}"
 
-        DOCKER_IMAGE = "jeevan11/petclinic"      // Updated repo
-        DOCKERHUB_CRED = "DOCKER_HUB_LOGIN"     // Docker Hub credentials
+        DOCKER_IMAGE = "jeevan11/petclinic"      // Updated Docker repo
+        DOCKERHUB_CRED = "DOCKER_HUB_LOGIN"      // DockerHub credential ID
     }
 
     stages {
@@ -62,7 +62,7 @@ pipeline {
         stage('Docker Login & Push') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: "${DOCKERHUB_CRED}",
+                    credentialsId: DOCKERHUB_CRED,
                     usernameVariable: 'USER',
                     passwordVariable: 'PASS'
                 )]) {
@@ -81,17 +81,21 @@ pipeline {
 
         stage('Deploy via Ansible') {
             steps {
-        withCredentials([sshUserPrivateKey(
-            credentialsId: 'ansible-ssh-key',
-            usernameVariable: 'SSH_USER',
-            keyFileVariable: 'SSH_KEY'
-        )]) {
-            sh '''
-                export ANSIBLE_HOST_KEY_CHECKING=False
-                ansible-playbook -i /tmp/inv deploy.yml \
-                    --private-key $SSH_KEY \
-                    -u $SSH_USER
-            '''
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'ansible-ssh-key',
+                    usernameVariable: 'SSH_USER',
+                    keyFileVariable: 'SSH_KEY'
+                )]) {
+
+                    sh '''
+                        export ANSIBLE_HOST_KEY_CHECKING=False
+                        ansible-playbook -i /tmp/inv deploy.yml \
+                            --private-key $SSH_KEY \
+                            -u $SSH_USER
+                    '''
+                }
+            }
         }
-    }
-}
+
+    } // end stages
+} // end pipeline
