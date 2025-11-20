@@ -3,16 +3,17 @@
   become: yes
 
   tasks:
-    - name: Pull Petclinic Image
-      command: docker pull jeevan121/petclinic:v1
 
-    - name: Stop old container
+    - name: Pull latest Petclinic Image
+      command: docker pull jeevan11/petclinic:latest
+
+    - name: Stop old container if running
       command: docker stop petclinic
       ignore_errors: yes
 
-    - name: Remove old container
+    - name: Remove old container if exists
       command: docker rm petclinic
       ignore_errors: yes
 
-    - name: Run new container
-      command: docker run -d --name petclinic -p 8080:8080 jeevan121/petclinic:v1
+    - name: Run new Petclinic container
+      command: docker run -d --name petclinic -p 8080:8080 jeevan11/petclinic:latest
