@@ -2,17 +2,16 @@ pipeline {
     agent any
 
     tools {
-        jdk 'myjava'              // <-- USE JDK 25 FOR BUILD
-        maven 'maven3.9'         // <-- matches your tool name
+        jdk 'myjava'                 // Your JDK 25 tool name
+        maven 'maven3.9'             // Your Maven tool name
     }
 
     environment {
-        // Explicit JAVA_HOME override for safety
         JAVA_HOME = "/usr/lib/jvm/temurin-25-jdk-amd64"
         PATH = "${JAVA_HOME}/bin:${PATH}"
 
-        DOCKER_IMAGE = "jeevan11/petclinic"
-        DOCKERHUB_CRED = "DOCKER_HUB_LOGIN"
+        DOCKER_IMAGE = "jeevan11/petclinic"      // Updated repo
+        DOCKERHUB_CRED = "DOCKER_HUB_LOGIN"     // Docker Hub credentials
     }
 
     stages {
@@ -49,9 +48,14 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                    docker build -t $DOCKER_IMAGE:latest .
-                '''
+                script {
+                    env.BUILD_VERSION = "v${env.BUILD_NUMBER}"
+
+                    sh """
+                        docker build -t ${DOCKER_IMAGE}:latest .
+                        docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_VERSION}
+                    """
+                }
             }
         }
 
@@ -62,21 +66,31 @@ pipeline {
                     usernameVariable: 'USER',
                     passwordVariable: 'PASS'
                 )]) {
+
                     sh '''
                         echo "$PASS" | docker login -u "$USER" --password-stdin
-                        docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:v1
-                        docker push $DOCKER_IMAGE:v1
                     '''
                 }
+
+                sh """
+                    docker push ${DOCKER_IMAGE}:latest
+                    docker push ${DOCKER_IMAGE}:${BUILD_VERSION}
+                """
             }
         }
 
         stage('Deploy via Ansible') {
             steps {
-                sh '''
-                    export ANSIBLE_HOST_KEY_CHECKING=False
-                    ansible-playbook -i /tmp/inv deploy.yml
-                '''
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'ansible-ssh-key',      // Your Jenkins SSH key ID
+                    keyFileVariable: 'SSH_KEY'
+                )]) {
+
+                    sh '''
+                        export ANSIBLE_HOST_KEY_CHECKING=False
+                        ansible-playbook -i /tmp/inv deploy.yml --private-key $SSH_KEY
+                    '''
+                }
             }
         }
     }
