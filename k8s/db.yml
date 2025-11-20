@@ -3,15 +3,11 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: demo-db
-type: servicebinding.io/postgresql
+type: Opaque
 stringData:
-  type: "postgresql"
-  provider: "postgresql"
-  host: "demo-db"
-  port: "5432"
+  username: "petclinic"
+  password: "petclinic"
   database: "petclinic"
-  username: "user"
-  password: "pass"
 
 ---
 apiVersion: v1
@@ -20,7 +16,7 @@ metadata:
   name: demo-db
 spec:
   ports:
-    - port: 5432
+    - port: 3306
   selector:
     app: demo-db
 
@@ -41,33 +37,48 @@ spec:
         app: demo-db
     spec:
       containers:
-        - image: postgres:18.0
-          name: postgresql
+        - name: mysql
+          image: mysql:8
           env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: demo-db
-                  key: username
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: demo-db
-                  key: password
-            - name: POSTGRES_DB
+            - name: MYSQL_DATABASE
               valueFrom:
                 secretKeyRef:
                   name: demo-db
                   key: database
+
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: demo-db
+                  key: username
+
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: demo-db
+                  key: password
+
+            - name: MYSQL_ROOT_PASSWORD
+              value: root123
+
           ports:
-            - containerPort: 5432
-              name: postgresql
+            - containerPort: 3306
+              name: mysql
+
           livenessProbe:
             tcpSocket:
-              port: postgresql
+              port: mysql
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
           readinessProbe:
             tcpSocket:
-              port: postgresql
+              port: mysql
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
           startupProbe:
             tcpSocket:
-              port: postgresql
+              port: mysql
+            failureThreshold: 30
+            periodSeconds: 10
