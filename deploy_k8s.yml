@@ -41,7 +41,7 @@
         dest: "{{ repo_dir }}"
         version: main
         force: yes
-      become: no       # IMPORTANT – clone as ubuntu user
+      become: no       # clone as ubuntu user
 
     # ----------------------------
     # Pass dynamic Docker image tag from Jenkins
@@ -67,17 +67,17 @@
         msg: "Deploying image tag: {{ image_tag }}"
 
     # ----------------------------
-    # Render Kubernetes Manifest
+    # Render Kubernetes Manifest (IMPORTANT FIX)
     # ----------------------------
 
-    - name: Render petclinic manifest
+    - name: Render petclinic manifest (controller → remote)
       template:
-        src: "{{ repo_dir }}/k8s/petclinic.yml.j2"
-        dest: "{{ repo_dir }}/k8s/petclinic.yml"
+        src: "k8s/petclinic.yml.j2"                   # LOCAL path in Jenkins workspace
+        dest: "{{ repo_dir }}/k8s/petclinic.yml"     # REMOTE path on K8s server
         mode: '0644'
       vars:
         image_tag: "{{ image_tag }}"
-      become: no       # ubuntu owns repo, so do not use root
+      become: no
 
     # ----------------------------
     # Apply DB manifest if exists
