@@ -81,17 +81,17 @@ pipeline {
 
         stage('Deploy via Ansible') {
             steps {
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'ansible-ssh-key',      // Your Jenkins SSH key ID
-                    keyFileVariable: 'SSH_KEY'
-                )]) {
-
-                    sh '''
-                        export ANSIBLE_HOST_KEY_CHECKING=False
-                        ansible-playbook -i /tmp/inv deploy.yml --private-key $SSH_KEY
-                    '''
-                }
-            }
+        withCredentials([sshUserPrivateKey(
+            credentialsId: 'ansible-ssh-key',
+            usernameVariable: 'SSH_USER',
+            keyFileVariable: 'SSH_KEY'
+        )]) {
+            sh '''
+                export ANSIBLE_HOST_KEY_CHECKING=False
+                ansible-playbook -i /tmp/inv deploy.yml \
+                    --private-key $SSH_KEY \
+                    -u $SSH_USER
+            '''
         }
     }
 }
