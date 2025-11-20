@@ -11,7 +11,7 @@ pipeline {
         JAVA_HOME = "/usr/lib/jvm/temurin-25-jdk-amd64"
         PATH = "${JAVA_HOME}/bin:${PATH}"
 
-        DOCKER_IMAGE = "jeevan121/petclinic"
+        DOCKER_IMAGE = "jeevan11/petclinic"
         DOCKERHUB_CRED = "DOCKER_HUB_LOGIN"
     }
 
