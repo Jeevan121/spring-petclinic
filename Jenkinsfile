@@ -74,6 +74,7 @@ pipeline {
         stage('Deploy via Ansible') {
             steps {
                 sh '''
+                    export ANSIBLE_HOST_KEY_CHECKING=False
                     ansible-playbook -i /tmp/inv deploy.yml
                 '''
             }
