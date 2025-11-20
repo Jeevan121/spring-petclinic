@@ -4,7 +4,7 @@
   become: yes
   vars:
     repo_dir: "/opt/spring-petclinic"
-    image_tag_file: "image-tag.txt"   # passed from Jenkins
+    image_tag_file: "image-tag.txt"
 
   tasks:
 
@@ -27,20 +27,20 @@
         dest: "/tmp/image-tag.txt"
         mode: '0644'
 
-    - name: Read image tag from file
+    - name: Read image tag
       slurp:
         src: "/tmp/image-tag.txt"
-      register: image_tag_data
+      register: tag_raw
 
-    - name: Set image_tag variable
+    - name: Set image tag
       set_fact:
-        image_tag: "{{ image_tag_data.content | b64decode | trim }}"
+        image_tag: "{{ tag_raw.content | b64decode | trim }}"
 
-    - name: Debug image tag being deployed
+    - name: Debug image tag
       debug:
         msg: "Deploying image tag: {{ image_tag }}"
 
-    - name: Template Petclinic Kubernetes manifest
+    - name: Render petclinic manifest
       template:
         src: "{{ repo_dir }}/k8s/petclinic.yml.j2"
         dest: "{{ repo_dir }}/k8s/petclinic.yml"
@@ -48,20 +48,18 @@
       vars:
         image_tag: "{{ image_tag }}"
 
-    - name: Ensure kubectl is installed
-      command: which kubectl
-      register: kubectl_check
-      failed_when: kubectl_check.rc != 0
+    # SIMPLER CHECK — if db.yaml exists, apply it
+    - name: Check if db.yaml exists
+      stat:
+        path: "{{ repo_dir }}/k8s/db.yaml"
+      register: db_file
 
-    - name: Apply DB manifest (if exists)
+    - name: Apply DB manifest if present
       command: kubectl apply -f {{ repo_dir }}/k8s/db.yaml
-      register: db_apply
-      ignore_errors: yes
-      when: lookup('ansible.builtin.first_found', { 'files': [ repo_dir + '/k8s/db.yaml' ], 'skip': True }) != None
+      when: db_file.stat.exists
 
     - name: Apply Petclinic manifest
       command: kubectl apply -f {{ repo_dir }}/k8s/petclinic.yml
-      register: petclinic_apply
 
     - name: Wait for rollout to complete
       command: kubectl rollout status deployment/petclinic --timeout=120s
