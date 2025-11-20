@@ -1,0 +1,78 @@
+---
+- name: Deploy Petclinic to Kubernetes Cluster
+  hosts: qa
+  become: yes
+  vars:
+    repo_dir: "/opt/spring-petclinic"
+    image_tag_file: "image-tag.txt"   # passed from Jenkins
+
+  tasks:
+
+    - name: Ensure git installed
+      apt:
+        name: git
+        state: present
+      become: yes
+
+    - name: Clone or update the repository
+      git:
+        repo: "https://github.com/Jeevan121/spring-petclinic.git"
+        dest: "{{ repo_dir }}"
+        version: main
+        force: yes
+
+    - name: Copy image-tag.txt from Jenkins workspace to remote host
+      copy:
+        src: "{{ image_tag_file }}"
+        dest: "/tmp/image-tag.txt"
+        mode: '0644'
+
+    - name: Read image tag from file
+      slurp:
+        src: "/tmp/image-tag.txt"
+      register: image_tag_data
+
+    - name: Set image_tag variable
+      set_fact:
+        image_tag: "{{ image_tag_data.content | b64decode | trim }}"
+
+    - name: Debug image tag being deployed
+      debug:
+        msg: "Deploying image tag: {{ image_tag }}"
+
+    - name: Template Petclinic Kubernetes manifest
+      template:
+        src: "{{ repo_dir }}/k8s/petclinic.yml.j2"
+        dest: "{{ repo_dir }}/k8s/petclinic.yml"
+        mode: '0644'
+      vars:
+        image_tag: "{{ image_tag }}"
+
+    - name: Ensure kubectl is installed
+      command: which kubectl
+      register: kubectl_check
+      failed_when: kubectl_check.rc != 0
+
+    - name: Apply DB manifest (if exists)
+      command: kubectl apply -f {{ repo_dir }}/k8s/db.yaml
+      register: db_apply
+      ignore_errors: yes
+      when: lookup('ansible.builtin.first_found', { 'files': [ repo_dir + '/k8s/db.yaml' ], 'skip': True }) != None
+
+    - name: Apply Petclinic manifest
+      command: kubectl apply -f {{ repo_dir }}/k8s/petclinic.yml
+      register: petclinic_apply
+
+    - name: Wait for rollout to complete
+      command: kubectl rollout status deployment/petclinic --timeout=120s
+      register: rollout_status
+      failed_when: rollout_status.rc != 0
+
+    - name: Get pod status
+      command: kubectl get pods -n default -o wide
+      register: pod_status
+      changed_when: false
+
+    - name: Show pods
+      debug:
+        var: pod_status.stdout_lines
