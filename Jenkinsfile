@@ -62,7 +62,7 @@ pipeline {
         stage('Docker Login & Push') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: DOCKER_HUB_CRED,
+                    credentialsId: DOCKERHUB_CRED,
                     usernameVariable: 'USER',
                     passwordVariable: 'PASS'
                 )]) {
@@ -82,7 +82,6 @@ pipeline {
         stage('Deploy to Kubernetes via Ansible') {
             steps {
                 script {
-                    // Write dynamic Docker tag for Ansible
                     writeFile file: 'image-tag.txt', text: env.BUILD_VERSION
                 }
 
@@ -95,5 +94,15 @@ pipeline {
                     sh '''
                         export ANSIBLE_HOST_KEY_CHECKING=False
 
-                        # Run ansible-playbook using Jenkins workspace
                         ansible-playbook -i /tmp/inv deploy_k8s.yml \
+                            --private-key $SSH_KEY \
+                            -u $SSH_USER \
+                            --extra-vars "image_tag_file=image-tag.txt"
+                    '''
+                }
+            }
+        }
+
+    } // end stages
+
+} // end pipeline
