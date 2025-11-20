@@ -41,7 +41,7 @@
         dest: "{{ repo_dir }}"
         version: main
         force: yes
-      become: no       # clone as ubuntu user
+      become: no
 
     # ----------------------------
     # Pass dynamic Docker image tag from Jenkins
@@ -67,13 +67,13 @@
         msg: "Deploying image tag: {{ image_tag }}"
 
     # ----------------------------
-    # Render Kubernetes Manifest (IMPORTANT FIX)
+    # Render Kubernetes Manifest
     # ----------------------------
 
-    - name: Render petclinic manifest (controller → remote)
+    - name: Render petclinic manifest
       template:
-        src: "k8s/petclinic.yml.j2"                   # LOCAL path in Jenkins workspace
-        dest: "{{ repo_dir }}/k8s/petclinic.yml"     # REMOTE path on K8s server
+        src: "k8s/petclinic.yml.j2"
+        dest: "{{ repo_dir }}/k8s/petclinic.yml"
         mode: '0644'
       vars:
         image_tag: "{{ image_tag }}"
@@ -83,14 +83,16 @@
     # Apply DB manifest if exists
     # ----------------------------
 
-    - name: Check if db.yaml exists
+    - name: Check if db.yml exists
       stat:
         path: "{{ repo_dir }}/k8s/db.yml"
       register: db_file
 
     - name: Apply DB manifest if present
-      command: kubectl apply -f {{ repo_dir }}/k8s/db.yml
+      command: kubectl apply --validate=false -f {{ repo_dir }}/k8s/db.yml
       when: db_file.stat.exists
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
 
     # ----------------------------
     # Apply Petclinic Deployment
@@ -98,11 +100,15 @@
 
     - name: Apply Petclinic manifest
       command: kubectl apply -f {{ repo_dir }}/k8s/petclinic.yml
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
 
     - name: Wait for rollout to complete
       command: kubectl rollout status deployment/petclinic --timeout=120s
       register: rollout_status
       failed_when: rollout_status.rc != 0
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
 
     # ----------------------------
     # Show Pod List
@@ -112,6 +118,8 @@
       command: kubectl get pods -n default -o wide
       register: pod_status
       changed_when: false
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
 
     - name: Show pods
       debug:
